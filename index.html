@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思考を現実化する手帳</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --accent:#1a4d8f; --accent-light:#e8f0fa; --bg:#f5f6f8; --card:#ffffff;
+  --text:#1f2933; --muted:#6b7280; --border:#d9dee5; --ok:#188038; --warn:#c5221f;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+header{position:sticky;top:0;z-index:20;background:var(--accent);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+header h1{font-size:16px;margin:0;font-weight:700;}
+#saveStatus{font-size:12px;opacity:.85;}
+header .spacer{flex:1;}
+header button{background:#fff;color:var(--accent);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+header button:hover{opacity:.9;}
+nav{display:flex;overflow-x:auto;background:var(--card);border-bottom:2px solid var(--border);position:sticky;top:48px;z-index:19;}
+nav button{flex:0 0 auto;border:none;background:none;padding:10px 14px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;}
+nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+main{max-width:1200px;margin:0 auto;padding:16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+.card h2{font-size:15px;margin:0 0 4px;color:var(--accent);}
+.card h3{font-size:13px;margin:14px 0 6px;}
+.hint{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.6;}
+textarea,input[type=text],input[type=number],input[type=date],input[type=month],select{
+  width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--text);
+}
+textarea{resize:vertical;min-height:56px;line-height:1.5;}
+table{border-collapse:collapse;width:100%;}
+th,td{border:1px solid var(--border);padding:4px;font-size:12px;vertical-align:top;}
+th{background:var(--accent-light);color:var(--accent);font-weight:600;white-space:nowrap;}
+td input,td textarea,td select{border:none;padding:4px;min-height:0;}
+td textarea{min-height:32px;}
+.tblwrap{overflow-x:auto;}
+.btn{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;margin:6px 6px 0 0;}
+.btn:hover{background:var(--accent);color:#fff;}
+.btn.danger{color:var(--warn);border-color:var(--warn);background:#fdeaea;}
+.btn.danger:hover{background:var(--warn);color:#fff;}
+.delbtn{background:none;border:none;color:var(--warn);cursor:pointer;font-size:14px;padding:0 4px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid100{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px;}
+.wish{display:flex;align-items:center;gap:4px;}
+.wish span{font-size:11px;color:var(--muted);width:26px;text-align:right;flex:0 0 auto;}
+.wish input[type=checkbox]{flex:0 0 auto;}
+.daycell{width:22px;min-width:22px;text-align:center;padding:2px;}
+.daycell input{width:14px;height:14px;}
+.weekgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;}
+.weekday{border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff;}
+.weekday h4{margin:0 0 6px;font-size:12px;color:var(--accent);}
+.weekday label{font-size:10px;color:var(--muted);}
+.selrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.selrow input{width:auto;}
+.badge{font-size:11px;background:var(--accent-light);color:var(--accent);border-radius:10px;padding:2px 10px;}
+code,pre{background:#f0f2f5;border-radius:6px;font-size:12px;}
+pre{padding:12px;overflow-x:auto;white-space:pre-wrap;border:1px solid var(--border);}
+.q2{background:#fff8e1;}
+.matrix{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.matrix .cell{border:1px solid var(--border);border-radius:8px;padding:8px;min-height:80px;font-size:12px;}
+.matrix .cell h4{margin:0 0 6px;font-size:12px;}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:20px;}
+@media(max-width:700px){.grid2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header>
+  <h1>思考を現実化する手帳</h1>
+  <span id="saveStatus"></span>
+  <span class="spacer"></span>
+  <button data-action="export-xlsx">Excelに書き出す</button>
+  <button data-action="export-tsv">このシートをコピー</button>
+  <button data-action="send-gas">スプレッドシートへ送信</button>
+  <button data-action="load-gas">スプレッドシートから読込</button>
+</header>
+<nav id="tabs"></nav>
+<main id="content"></main>
+<footer>入力内容はこのブラウザに自動保存されます。他の端末・ブラウザには引き継がれないため、定期的にバックアップ(設定タブ)やスプレッドシート送信をおすすめします。</footer>
+<script>
+"use strict";
+/* ====================== 状態管理 ====================== */
+const KEY = "achievementPlanner_v1";
+const FIELDS7 = ["健康","仕事・職業","家庭・人間関係","経済・財政","趣味・教養","社会(役割)","自己実現・能力開発"];
+const thisYear = new Date().getFullYear();
+
+function defaults(){
+  return {
+    ui:{tab:"history", month:ym(new Date()), week:mondayOf(new Date()), day:ymd(new Date())},
+    history:{rows:[{age:"",year:"",kind:"過去",event:""},{age:"",year:"",kind:"未来",event:""}]},
+    wish100:{items:Array.from({length:100},()=>({text:"",done:false}))},
+    goals:{rinen:"",vision:"",fields:FIELDS7.map(n=>({name:n,ideal:"",current:"",gap:"",goal:"",deadline:""}))},
+    primetime:{want:"",deadline:"",current:"",gap:"",tasks:[{text:"",quadrant:"2",startBy:""}]},
+    longterm:{startYear:thisYear,goals:["","","","","",""],top:"",
+      profile:[{label:"自分の年齢",values:Array(10).fill("")},{label:"家族の年齢",values:Array(10).fill("")}],
+      themes:[{name:"",image:"",keys:"",years:Array(10).fill("")}]},
+    annual:{year:thisYear,goals:["","","","","",""],top:"",events:"",
+      themes:[{name:"",image:"",keys:"",months:Array(12).fill("")}]},
+    monthly:{},
+    weekly:{},
+    daily:{},
+    affirmation:{q1:"",q2:"",q3:"",text:""},
+    settings:{apiUrl:"",apiToken:""},
+    meta:{updatedAt:""}
+  };
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return defaults();
+    const d = defaults(), s = JSON.parse(raw);
+    return Object.assign(d, s, {ui:Object.assign(d.ui, s.ui||{})});
+  }catch(e){ return defaults(); }
+}
+let state = load();
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  setStatus("入力中…");
+  saveTimer = setTimeout(()=>{
+    if(!state.meta) state.meta = {};
+    state.meta.updatedAt = new Date().toISOString();
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); setStatus("✓ 自動保存済み"); }
+    catch(e){ setStatus("⚠ 自動保存不可(JSONバックアップを利用してください)"); }
+  }, 500);
+}
+function setStatus(t){ document.getElementById("saveStatus").textContent = t; }
+
+function get(path){ return path.split(".").reduce((o,k)=>o==null?o:o[k], state); }
+function set(path,val){
+  const ks = path.split("."); let o = state;
+  for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null) o[ks[i]]={}; o=o[ks[i]]; }
+  o[ks[ks.length-1]] = val; scheduleSave();
+}
+/* ====================== 日付ユーティリティ ====================== */
+function pad(n){ return String(n).padStart(2,"0"); }
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function ym(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+function mondayOf(d){
+  const t = new Date(d); const diff = (t.getDay()+6)%7; t.setDate(t.getDate()-diff); return ymd(t);
+}
+function addDays(s,n){ const d = new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return d; }
+function daysInMonth(key){ const [y,m]=key.split("-").map(Number); return new Date(y,m,0).getDate(); }
+const DOW = ["日","月","火","水","木","金","土"];
+
+/* ====================== 期間データの初期化 ====================== */
+function ensureMonthly(k){
+  if(!state.monthly[k]) state.monthly[k] = {goal:"",top:"",image:"",keys:"",notes:"",
+    habits:[{name:"",days:{}},{name:"",days:{}},{name:"",days:{}}]};
+  return state.monthly[k];
+}
+function ensureWeekly(k){
+  if(!state.weekly[k]) state.weekly[k] = {goal:"",top:"",fixed:"",reserve:"",
+    days:Array.from({length:7},()=>({am:"",pm:"",eve:"",memo:""}))};
+  return state.weekly[k];
+}
+function ensureDaily(k){
+  if(!state.daily[k]) state.daily[k] = {top:"",result:"",
+    todos:[{text:"",pri:"A",order:"",est:"",done:false}],
+    timeline:{}};
+  return state.daily[k];
+}
+/* ====================== 共通部品 ====================== */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function ta(path,rows,ph){ return '<textarea data-path="'+path+'" rows="'+(rows||2)+'" placeholder="'+esc(ph||"")+'">'+esc(get(path))+'</textarea>'; }
+function inp(path,ph,type){ return '<input type="'+(type||"text")+'" data-path="'+path+'" value="'+esc(get(path))+'" placeholder="'+esc(ph||"")+'">'; }
+function chk(path){ return '<input type="checkbox" data-path="'+path+'" data-type="bool"'+(get(path)?" checked":"")+'>'; }
+
+/* ====================== 各タブの描画 ====================== */
+const TABS = [
+ {id:"history", label:"① 自分100年史", render: renderHistory},
+ {id:"wish100", label:"やりたいこと100", render: renderWish100},
+ {id:"goals", label:"② 目標の構造化", render: renderGoals},
+ {id:"primetime", label:"③ プライムタイム", render: renderPrime},
+ {id:"longterm", label:"④ 中長期(10年)", render: renderLongterm},
+ {id:"annual", label:"⑤ 年間", render: renderAnnual},
+ {id:"monthly", label:"⑥ 月間", render: renderMonthly},
+ {id:"weekly", label:"⑦ 週間", render: renderWeekly},
+ {id:"daily", label:"⑧ 日間", render: renderDaily},
+ {id:"affirmation", label:"⑨ 自己宣言文", render: renderAffirmation},
+ {id:"settings", label:"⚙ 設定・保存", render: renderSettings},
+];
+
+function renderHistory(){
+  let rows = state.history.rows.map((r,i)=>
+    '<tr><td style="width:70px">'+inp("history.rows."+i+".age","歳","number")+'</td>'+
+    '<td style="width:90px">'+inp("history.rows."+i+".year","西暦","number")+'</td>'+
+    '<td style="width:90px"><select data-path="history.rows.'+i+'.kind">'+
+      ['過去','未来'].map(k=>'<option'+(r.kind===k?' selected':'')+'>'+k+'</option>').join('')+'</select></td>'+
+    '<td>'+ta("history.rows."+i+".event",1,"出来事 / 実現していたいこと")+'</td>'+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="history.rows" data-idx="'+i+'">✕</button></td></tr>'
+  ).join("");
+  return '<div class="card"><h2>自分100年史</h2>'+
+  '<p class="hint">これまでの人生を年齢ごとに振り返り(過去)、何歳のときに何を実現していたいか(未来)を100歳まで自由に書きます。「その年代になった自分」になりきって、ありたい姿を探ります。</p>'+
+  '<div class="tblwrap"><table><tr><th>年齢</th><th>西暦</th><th>区分</th><th>出来事・実現していたいこと</th><th></th></tr>'+rows+'</table></div>'+
+  '<button class="btn" data-action="add-history">＋ 行を追加</button></div>';
+}
+
+function renderWish100(){
+  const items = state.wish100.items.map((it,i)=>
+    '<div class="wish"><span>'+(i+1)+'.</span>'+chk("wish100.items."+i+".done")+
+    inp("wish100.items."+i+".text","")+'</div>').join("");
+  const filled = state.wish100.items.filter(i=>i.text).length;
+  return '<div class="card"><h2>人生でやりたいこと100リスト <span class="badge">'+filled+' / 100</span></h2>'+
+  '<p class="hint">やってみたいこと・やりたいことを100個書き出します。どんなに小さなことでもOK。思いついた順に書き、チェックボックスは達成したら✓。</p>'+
+  '<div class="grid100">'+items+'</div></div>';
+}
+
+function renderGoals(){
+  const rows = state.goals.fields.map((f,i)=>
+    '<tr><td style="width:110px">'+inp("goals.fields."+i+".name")+'</td>'+
+    '<td>'+ta("goals.fields."+i+".ideal",2,"あるべき姿")+'</td>'+
+    '<td>'+ta("goals.fields."+i+".current",2,"今の状態")+'</td>'+
+    '<td>'+ta("goals.fields."+i+".gap",2,"埋めるべき差")+'</td>'+
+    '<td>'+ta("goals.fields."+i+".goal",2,"「〜する」まで具体的に・定量化")+'</td>'+
+    '<td style="width:100px">'+inp("goals.fields."+i+".deadline","年月")+'</td></tr>').join("");
+  return '<div class="card"><h2>人生理念・人生ビジョン</h2>'+
+  '<p class="hint">大切にしたい生き方・判断基準(理念)と、何を実現したいか(ビジョン)を書きます。</p>'+
+  '<div class="grid2"><div><h3>人生理念</h3>'+ta("goals.rinen",4,"自分が大切にしたい生き方・判断基準")+'</div>'+
+  '<div><h3>人生ビジョン</h3>'+ta("goals.vision",4,"何を実現したいか")+'</div></div></div>'+
+  '<div class="card"><h2>目標の構造化(7つの分野)</h2>'+
+  '<p class="hint">分野ごとに「理想」と「現状」を書き、その差(GAP)を埋める目標を設定します。ポイント: ①期日を切る ②定量化する ③「〜する」まで具体的に書く。</p>'+
+  '<div class="tblwrap"><table><tr><th>分野</th><th>理想</th><th>現状</th><th>GAP</th><th>目標</th><th>期日</th></tr>'+rows+'</table></div></div>';
+}
+
+function renderPrime(){
+  const qLabel = {"1":"第1象限(緊急×重要)","2":"第2象限(緊急でない×重要)","3":"第3象限(緊急×重要でない)","4":"第4象限(緊急でない×重要でない)"};
+  const rows = state.primetime.tasks.map((t,i)=>
+    '<tr'+(t.quadrant==="2"?' class="q2"':'')+'><td>'+ta("primetime.tasks."+i+".text",1,"やるべきこと")+'</td>'+
+    '<td style="width:220px"><select data-path="primetime.tasks.'+i+'.quadrant">'+
+      Object.keys(qLabel).map(q=>'<option value="'+q+'"'+(t.quadrant===q?' selected':'')+'>'+qLabel[q]+'</option>').join('')+'</select></td>'+
+    '<td style="width:120px">'+inp("primetime.tasks."+i+".startBy","着手期日","date")+'</td>'+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="primetime.tasks" data-idx="'+i+'">✕</button></td></tr>').join("");
+  return '<div class="card"><h2>実現したいこと</h2>'+
+  '<p class="hint">何を実現したいか具体的に書き、期日・現状・GAPを明確にします。</p>'+
+  '<div class="grid2"><div><h3>実現したいこと</h3>'+ta("primetime.want",3)+'</div><div><h3>期日</h3>'+inp("primetime.deadline","例: 2027年3月まで")+
+  '<h3>現状</h3>'+ta("primetime.current",2)+'</div></div><h3>GAP</h3>'+ta("primetime.gap",2)+'</div>'+
+  '<div class="card"><h2>やるべきことの分類(緊急度×重要度)</h2>'+
+  '<p class="hint">成果を出す人は「緊急ではないが重要」な<b>第2象限</b>(黄色の行)に時間をかけています。第2象限のことは半年以内に実行、1か月以内に着手する予定に落とし込みます。優先事項の20%が成果の80%を生みます(パレートの法則)。</p>'+
+  '<div class="tblwrap"><table><tr><th>やるべきこと</th><th>分類</th><th>着手期日</th><th></th></tr>'+rows+'</table></div>'+
+  '<button class="btn" data-action="add-primetask">＋ 行を追加</button></div>';
+}
+
+function renderLongterm(){
+  const y0 = Number(state.longterm.startYear)||thisYear;
+  const yearTh = Array.from({length:10},(_,i)=>'<th>'+(y0+i)+'</th>').join("");
+  const goals = state.longterm.goals.map((g,i)=>'<div style="display:flex;gap:6px;margin-bottom:4px"><span class="badge">'+(i+1)+'</span>'+inp("longterm.goals."+i)+'</div>').join("");
+  const prof = state.longterm.profile.map((p,i)=>
+    '<tr><td style="width:120px">'+inp("longterm.profile."+i+".label")+'</td>'+
+    p.values.map((v,j)=>'<td>'+inp("longterm.profile."+i+".values."+j)+'</td>').join("")+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="longterm.profile" data-idx="'+i+'">✕</button></td></tr>').join("");
+  const themes = state.longterm.themes.map((t,i)=>
+    '<tr><td style="min-width:100px">'+ta("longterm.themes."+i+".name",2,"テーマ")+'</td>'+
+    '<td style="min-width:140px">'+ta("longterm.themes."+i+".image",2,"成果のイメージ")+'</td>'+
+    '<td style="min-width:140px">'+ta("longterm.themes."+i+".keys",2,"成否のポイント(トップ20%)")+'</td>'+
+    t.years.map((v,j)=>'<td style="min-width:90px">'+ta("longterm.themes."+i+".years."+j,2)+'</td>').join("")+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="longterm.themes" data-idx="'+i+'">✕</button></td></tr>').join("");
+  return '<div class="card"><h2>中長期行動計画表(10年)</h2>'+
+  '<div class="selrow"><span>開始年:</span><input type="number" style="width:100px" data-path="longterm.startYear" data-type="num" value="'+esc(y0)+'"></div>'+
+  '<p class="hint">10年間で達成したい目標を「欲しい目標」として書き、10年先から逆算して各年に割り振ります。一度で完璧に書こうとせず、まず書いてみる。赤ペンでの見直し・修正を重ねて精度を高めます。</p>'+
+  '<h3>01 中長期の目標(6つ)</h3>'+goals+
+  '<h3>02 中長期の最重点目標</h3>'+ta("longterm.top",2,"6つのうち最も達成したい目標")+
+  '<h3>03 プロフィール(自分・家族の年齢など)</h3>'+
+  '<div class="tblwrap"><table><tr><th>項目</th>'+yearTh+'<th></th></tr>'+prof+'</table></div>'+
+  '<button class="btn" data-action="add-ltprofile">＋ 行を追加</button>'+
+  '<h3>04〜07 テーマ別 10年間の行動計画</h3>'+
+  '<div class="tblwrap"><table><tr><th>テーマ</th><th>成果イメージ</th><th>成否のポイント</th>'+yearTh+'<th></th></tr>'+themes+'</table></div>'+
+  '<button class="btn" data-action="add-lttheme">＋ テーマを追加</button></div>';
+}
+
+function renderAnnual(){
+  const yr = Number(state.annual.year)||thisYear;
+  const mTh = Array.from({length:12},(_,i)=>'<th>'+(i+1)+'月</th>').join("");
+  const goals = state.annual.goals.map((g,i)=>'<div style="display:flex;gap:6px;margin-bottom:4px"><span class="badge">'+(i+1)+'</span>'+inp("annual.goals."+i)+'</div>').join("");
+  const themes = state.annual.themes.map((t,i)=>
+    '<tr><td style="min-width:100px">'+ta("annual.themes."+i+".name",2,"テーマ")+'</td>'+
+    '<td style="min-width:140px">'+ta("annual.themes."+i+".image",2,"成果のイメージ")+'</td>'+
+    '<td style="min-width:140px">'+ta("annual.themes."+i+".keys",2,"成否のポイント(トップ20%)")+'</td>'+
+    t.months.map((v,j)=>'<td style="min-width:80px">'+ta("annual.themes."+i+".months."+j,2)+'</td>').join("")+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="annual.themes" data-idx="'+i+'">✕</button></td></tr>').join("");
+  return '<div class="card"><h2>年間行動計画表('+yr+'年)</h2>'+
+  '<div class="selrow"><span>対象年:</span><input type="number" style="width:100px" data-path="annual.year" data-type="num" value="'+esc(yr)+'"></div>'+
+  '<p class="hint">中長期行動計画表を参考に、今年1年の目標を立て、12月から逆算して行動を12か月に割り振ります。予定と実績を併記すると達成度が見えやすくなります。</p>'+
+  '<h3>01 1年間の目標(6つ)</h3>'+goals+
+  '<h3>02 年間の最重点目標</h3>'+ta("annual.top",2)+
+  '<h3>03 プロフィール・できごと(誕生日・記念日・式典など)</h3>'+ta("annual.events",3)+
+  '<h3>04〜07 テーマ別 1年間の行動計画</h3>'+
+  '<div class="tblwrap"><table><tr><th>テーマ</th><th>成果イメージ</th><th>成否のポイント</th>'+mTh+'<th></th></tr>'+themes+'</table></div>'+
+  '<button class="btn" data-action="add-antheme">＋ テーマを追加</button></div>';
+}
+
+function renderMonthly(){
+  const k = state.ui.month; const m = ensureMonthly(k); const nd = daysInMonth(k);
+  const dayTh = Array.from({length:nd},(_,i)=>'<th class="daycell">'+(i+1)+'</th>').join("");
+  const habits = m.habits.map((h,i)=>{
+    const cells = Array.from({length:nd},(_,d)=>'<td class="daycell">'+chk("monthly."+k+".habits."+i+".days."+(d+1))+'</td>').join("");
+    const cnt = Object.keys(h.days||{}).filter(d=>h.days[d]&&Number(d)<=nd).length;
+    return '<tr><td style="min-width:140px">'+inp("monthly."+k+".habits."+i+".name","行動・習慣(例: 読書30分)")+'</td>'+cells+
+    '<td style="text-align:center;white-space:nowrap">'+cnt+'回</td>'+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="monthly.'+k+'.habits" data-idx="'+i+'">✕</button></td></tr>';
+  }).join("");
+  return '<div class="card"><h2>月間行動計画表(マンスリープランナー)</h2>'+
+  '<div class="selrow"><span>対象月:</span><input type="month" data-path="ui.month" data-rerender="1" value="'+esc(k)+'"></div>'+
+  '<p class="hint">年間行動計画表から逆算して今月の目標を書きます。「1週間で5回」など頻度で計画し、実行日に✓を付けます。</p>'+
+  '<div class="grid2"><div><h3>01 今月の目標</h3>'+ta("monthly."+k+".goal",3)+'</div>'+
+  '<div><h3>02 今月の最重点目標</h3>'+ta("monthly."+k+".top",3)+'</div>'+
+  '<div><h3>04 達成による成果のイメージ</h3>'+ta("monthly."+k+".image",3)+'</div>'+
+  '<div><h3>05 成否のポイント(トップ20%)</h3>'+ta("monthly."+k+".keys",3)+'</div></div>'+
+  '<h3>03 重要な予定(研修・休日・終日の予定など)</h3>'+ta("monthly."+k+".notes",2)+
+  '<h3>06 1か月のプランニング(実行日に✓)</h3>'+
+  '<div class="tblwrap"><table><tr><th>行動テーマ</th>'+dayTh+'<th>実績</th><th></th></tr>'+habits+'</table></div>'+
+  '<button class="btn" data-action="add-habit">＋ 行動を追加</button></div>';
+}
+
+function renderWeekly(){
+  const k = state.ui.week; const w = ensureWeekly(k);
+  const cards = w.days.map((d,i)=>{
+    const dt = addDays(k,i);
+    return '<div class="weekday"><h4>'+ (dt.getMonth()+1)+'/'+dt.getDate()+' ('+DOW[dt.getDay()]+')</h4>'+
+    '<label>午前</label>'+ta("weekly."+k+".days."+i+".am",2)+
+    '<label>午後</label>'+ta("weekly."+k+".days."+i+".pm",2)+
+    '<label>夜</label>'+ta("weekly."+k+".days."+i+".eve",2)+
+    '<label>メモ / TO DO</label>'+ta("weekly."+k+".days."+i+".memo",2)+'</div>';
+  }).join("");
+  return '<div class="card"><h2>ウィークリープランナー(週の開始: '+esc(k)+')</h2>'+
+  '<div class="selrow"><span>週を選択(その週の月曜に変換):</span><input type="date" id="weekPicker" value="'+esc(k)+'"></div>'+
+  '<p class="hint">①決まっている予定を先に書く ②目標達成・未来を創造する時間(第2象限)をあらかじめ確保する、の順で計画します。ビジネス/プライベートの色分けや、起床・出社・退社時間を決めてメリハリをつけるのがコツ。</p>'+
+  '<div class="grid2"><div><h3>01 今週の目標</h3>'+ta("weekly."+k+".goal",3)+'</div>'+
+  '<div><h3>02 今週の最重点目標</h3>'+ta("weekly."+k+".top",3)+'</div>'+
+  '<div><h3>03 すでに決まっている予定</h3>'+ta("weekly."+k+".fixed",3)+'</div>'+
+  '<div><h3>04 目標達成のために確保する時間</h3>'+ta("weekly."+k+".reserve",3)+'</div></div>'+
+  '<h3>週間スケジュール</h3><div class="weekgrid">'+cards+'</div></div>';
+}
+
+function renderDaily(){
+  const k = state.ui.day; const d = ensureDaily(k);
+  const dt = new Date(k+"T00:00:00");
+  const todos = d.todos.map((t,i)=>
+    '<tr><td style="width:36px;text-align:center">'+chk("daily."+k+".todos."+i+".done")+'</td>'+
+    '<td>'+inp("daily."+k+".todos."+i+".text","TO DO")+'</td>'+
+    '<td style="width:70px"><select data-path="daily.'+k+'.todos.'+i+'.pri">'+
+      ["A","B","C"].map(p=>'<option'+(t.pri===p?" selected":"")+'>'+p+'</option>').join("")+'</select></td>'+
+    '<td style="width:60px">'+inp("daily."+k+".todos."+i+".order","順","number")+'</td>'+
+    '<td style="width:80px">'+inp("daily."+k+".todos."+i+".est","分","number")+'</td>'+
+    '<td style="width:30px;text-align:center"><button class="delbtn" data-action="del" data-target="daily.'+k+'.todos" data-idx="'+i+'">✕</button></td></tr>').join("");
+  const totalMin = d.todos.reduce((s,t)=>s+(Number(t.est)||0),0);
+  const hours = Array.from({length:19},(_,i)=>i+5); // 5時〜23時
+  const tl = hours.map(h=>{
+    const hk = pad(h)+":00";
+    return '<tr><td style="width:70px;text-align:center;background:var(--accent-light);color:var(--accent);font-weight:600">'+hk+'</td>'+
+    '<td>'+ta("daily."+k+".timeline."+hk,1)+'</td></tr>';
+  }).join("");
+  return '<div class="card"><h2>デイリープランナー('+k+' '+DOW[dt.getDay()]+'曜日)</h2>'+
+  '<div class="selrow"><span>日付:</span><input type="date" data-path="ui.day" data-rerender="1" value="'+esc(k)+'"></div>'+
+  '<p class="hint">優先度はA=きわめて重要 / B=重要 / C=価値あり。番号で実行順を付け、TO DOを時間軸に落とします。TO DO合計時間とタイムラインのGAPを見て調整。実績は達成=黒、未達=赤で振り返り、次のプランニングに活かします。</p>'+
+  '<h3>01 今日の最重点目標</h3>'+ta("daily."+k+".top",2)+
+  '<div class="grid2"><div><h3>02-03 TO DO(優先順位付き) <span class="badge">見積合計 '+totalMin+'分</span></h3>'+
+  '<div class="tblwrap"><table><tr><th>済</th><th>内容</th><th>優先</th><th>順</th><th>見積(分)</th><th></th></tr>'+todos+'</table></div>'+
+  '<button class="btn" data-action="add-todo">＋ TO DOを追加</button></div>'+
+  '<div><h3>04 タイムライン</h3><div class="tblwrap" style="max-height:420px;overflow-y:auto"><table>'+tl+'</table></div></div></div>'+
+  '<h3>06 今日の結果・振り返り(なぜGAPが起きたか)</h3>'+ta("daily."+k+".result",3)+'</div>';
+}
+
+function renderAffirmation(){
+  return '<div class="card"><h2>自己宣言文(アファメーション)</h2>'+
+  '<p class="hint">「人は自分がイメージしたとおりの人間になる」。なりたい自分・出したい成果を<b>現在完了形</b>(「〜している」「〜になっている」)で書き、毎朝・毎晩、声に出して読み上げます。数値で具体的に書き、自分自身との契約とします。</p>'+
+  '<h3>Q1. 手に入れたいもの・実現したい具体的な内容は?(何を・いつまでに・どこで・誰と)</h3>'+ta("affirmation.q1",3)+
+  '<h3>Q2. Q1のために着手すべきトップ20%の優先事項は?</h3>'+ta("affirmation.q2",3)+
+  '<h3>Q3. 誰のために、何のために達成しますか?</h3>'+ta("affirmation.q3",3)+
+  '<h3>自己宣言文(現在完了形で)</h3>'+ta("affirmation.text",8,"例: 私は20XX年X月、〜を達成している。")+'</div>';
+}
+
+function renderSettings(){
+  return '<div class="card"><h2>スプレッドシート連携(Vercel API)</h2>'+
+  '<p class="hint">「スプレッドシートへ送信」で全データをGoogleスプレッドシートに保存し、「スプレッドシートから読込」でいつでも復元できます。アプリを開いたとき、スプレッドシート側が新しければ自動で読み込みを提案します(別のPC・ブラウザとのデータ引き継ぎにも使えます)。サーバー側の準備(スプレッドシートへのGAS設置と、VercelへのGAS URLの登録)はリポジトリのREADMEの手順を参照してください。</p>'+
+  '<h3>APIのURL</h3>'+inp("settings.apiUrl","空欄 = このサイトと同じ場所(Vercelで開いている場合)")+
+  '<p class="hint">Vercelで公開したページから使う場合は空欄のままでOK。パソコン上のHTMLファイルを直接開いて使う場合は、https://あなたのアプリ名.vercel.app を入力してください。</p>'+
+  '<h3>アクセストークン</h3>'+inp("settings.apiToken","Vercelの環境変数 ACCESS_TOKEN と同じ値")+
+  '<p class="hint">Vercel側で環境変数 ACCESS_TOKEN を設定した場合、同じ値を入力した人だけが読み書きできます(未設定なら空欄)。</p>'+
+  '<button class="btn" data-action="test-api">接続テスト</button>'+
+  '<p class="hint">※データ本体はスプレッドシート内の隠しシート「_data」に保存されます(削除しないでください)。</p></div>'+
+  '<div class="card"><h2>バックアップ</h2>'+
+  '<p class="hint">入力内容はこのブラウザ内(localStorage)に自動保存されます。PCの変更やブラウザのデータ削除に備え、定期的にJSONバックアップを保存してください。</p>'+
+  '<button class="btn" data-action="export-json">JSONバックアップを保存</button>'+
+  '<button class="btn" data-action="import-json">JSONから復元</button>'+
+  '<input type="file" id="jsonFile" accept=".json" style="display:none">'+
+  '<button class="btn danger" data-action="reset-all">全データを消去</button></div>';
+}
+
+function apiBase(){
+  const u = (state.settings.apiUrl||"").trim().replace(/\/+$/,"");
+  if(u) return u;
+  if(location.protocol==="http:" || location.protocol==="https:") return "";
+  return null; // ローカルファイル(file://)でURL未設定
+}
+function apiHeaders(isJson){
+  const h = isJson ? {"Content-Type":"application/json"} : {};
+  const t = (state.settings.apiToken||"").trim();
+  if(t) h["X-App-Token"] = t;
+  return h;
+}
+function apiErrorMsg(res){
+  if(res.status===401) return "アクセストークンが一致しません。設定タブを確認してください。";
+  if(res.status===404) return "APIが見つかりません。Vercelにデプロイされているか確認してください。";
+  return "サーバーエラー("+res.status+")。Vercelの環境変数(スプレッドシートID・サービスアカウント)を確認してください。";
+}
+
+/* ====================== 描画・イベント ====================== */
+const content = document.getElementById("content");
+const tabsEl = document.getElementById("tabs");
+
+function render(){
+  tabsEl.innerHTML = TABS.map(t=>'<button data-tab="'+t.id+'"'+(state.ui.tab===t.id?' class="active"':'')+'>'+t.label+'</button>').join("");
+  const tab = TABS.find(t=>t.id===state.ui.tab) || TABS[0];
+  content.innerHTML = tab.render();
+  const wp = document.getElementById("weekPicker");
+  if(wp) wp.addEventListener("change", e=>{ state.ui.week = mondayOf(new Date(e.target.value+"T00:00:00")); scheduleSave(); render(); });
+}
+
+tabsEl.addEventListener("click", e=>{
+  const b = e.target.closest("[data-tab]"); if(!b) return;
+  state.ui.tab = b.dataset.tab; scheduleSave(); render();
+});
+
+content.addEventListener("input", e=>{
+  const t = e.target, p = t.dataset.path; if(!p) return;
+  let v;
+  if(t.dataset.type==="bool") v = t.checked;
+  else if(t.dataset.type==="num") v = Number(t.value)||"";
+  else v = t.value;
+  set(p, v);
+});
+content.addEventListener("change", e=>{
+  const t = e.target;
+  if(t.dataset.rerender) render();
+  if(t.dataset.type==="num") render();
+  if(t.dataset.type==="bool" && t.dataset.path && t.dataset.path.indexOf(".habits.")>-1) render(); // 実績カウント更新
+});
+
+content.addEventListener("click", e=>{
+  const b = e.target.closest("[data-action]"); if(!b) return;
+  const a = b.dataset.action;
+  if(a==="del"){
+    if(!confirm("この行を削除しますか?")) return;
+    const arr = get(b.dataset.target);
+    arr.splice(Number(b.dataset.idx),1); scheduleSave(); render(); return;
+  }
+  const add = {
+    "add-history": ()=>state.history.rows.push({age:"",year:"",kind:"未来",event:""}),
+    "add-primetask": ()=>state.primetime.tasks.push({text:"",quadrant:"2",startBy:""}),
+    "add-ltprofile": ()=>state.longterm.profile.push({label:"",values:Array(10).fill("")}),
+    "add-lttheme": ()=>state.longterm.themes.push({name:"",image:"",keys:"",years:Array(10).fill("")}),
+    "add-antheme": ()=>state.annual.themes.push({name:"",image:"",keys:"",months:Array(12).fill("")}),
+    "add-habit": ()=>ensureMonthly(state.ui.month).habits.push({name:"",days:{}}),
+    "add-todo": ()=>ensureDaily(state.ui.day).todos.push({text:"",pri:"B",order:"",est:"",done:false}),
+  };
+  if(add[a]){ add[a](); scheduleSave(); render(); return; }
+  if(a==="test-api"){
+    const base = apiBase();
+    if(base===null){ alert("APIのURLを入力してください(ローカルファイルから使う場合は必須)。"); return; }
+    b.textContent = "確認中…"; b.disabled = true;
+    fetch(base+"/api/load",{headers:apiHeaders(false)})
+      .then(r=>{ b.textContent="接続テスト"; b.disabled=false; alert(r.ok ? "接続OK! スプレッドシートと通信できました。" : apiErrorMsg(r)); })
+      .catch(err=>{ b.textContent="接続テスト"; b.disabled=false; alert("接続できません: "+err.message); });
+    return;
+  }
+  if(a==="export-json") return exportJSON();
+  if(a==="import-json") return document.getElementById("jsonFile").click();
+  if(a==="reset-all"){
+    if(confirm("本当に全データを消去しますか? この操作は元に戻せません。\n(事前にJSONバックアップの保存をおすすめします)")){
+      localStorage.removeItem(KEY); state = defaults(); state.ui.tab="settings"; render();
+    }
+    return;
+  }
+});
+content.addEventListener("change", e=>{
+  if(e.target.id==="jsonFile" && e.target.files[0]){
+    const fr = new FileReader();
+    fr.onload = ()=>{ try{ state = Object.assign(defaults(), JSON.parse(fr.result)); scheduleSave(); render(); alert("復元しました"); }catch(err){ alert("読み込みに失敗しました: "+err.message); } };
+    fr.readAsText(e.target.files[0]);
+  }
+});
+
+document.querySelector("header").addEventListener("click", e=>{
+  const b = e.target.closest("[data-action]"); if(!b) return;
+  const a = b.dataset.action;
+  if(a==="export-xlsx") exportXLSX();
+  if(a==="export-tsv") copyCurrentTSV(b);
+  if(a==="send-gas") sendToCloud(b);
+  if(a==="load-gas") loadFromCloud(true, b);
+});
+
+function copyText(text, btn){
+  const done = ()=>{ const o=btn.textContent; btn.textContent="✓ コピーしました"; setTimeout(()=>btn.textContent=o,1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done); }
+  else{ const t=document.createElement("textarea"); t.value=text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); done(); }
+}
+
+/* ====================== スプレッドシート用データ生成 ====================== */
+function aoaHistory(){
+  return [["自分100年史"],["年齢","西暦","区分","出来事・実現していたいこと"]]
+    .concat(state.history.rows.map(r=>[r.age,r.year,r.kind,r.event]));
+}
+function aoaWish(){
+  return [["人生でやりたいこと100リスト"],["No","内容","達成"]]
+    .concat(state.wish100.items.map((it,i)=>[i+1,it.text,it.done?"✓":""]));
+}
+function aoaGoals(){
+  return [["目標の構造化シート"],["人生理念",state.goals.rinen],["人生ビジョン",state.goals.vision],[],
+    ["分野","理想","現状","GAP","目標","期日"]]
+    .concat(state.goals.fields.map(f=>[f.name,f.ideal,f.current,f.gap,f.goal,f.deadline]));
+}
+function aoaPrime(){
+  const q={"1":"第1象限","2":"第2象限","3":"第3象限","4":"第4象限"};
+  return [["プライムタイムシート"],["実現したいこと",state.primetime.want],["期日",state.primetime.deadline],
+    ["現状",state.primetime.current],["GAP",state.primetime.gap],[],
+    ["やるべきこと","分類","着手期日"]]
+    .concat(state.primetime.tasks.map(t=>[t.text,q[t.quadrant]||"",t.startBy]));
+}
+function aoaLongterm(){
+  const y0=Number(state.longterm.startYear)||thisYear;
+  const years=Array.from({length:10},(_,i)=>y0+i);
+  let rows=[["中長期行動計画表(10年)"],["開始年",y0],[]];
+  rows.push(["中長期の目標"]);
+  state.longterm.goals.forEach((g,i)=>rows.push([(i+1),g]));
+  rows.push(["最重点目標",state.longterm.top],[]);
+  rows.push(["プロフィール"].concat(years));
+  state.longterm.profile.forEach(p=>rows.push([p.label].concat(p.values)));
+  rows.push([]);
+  rows.push(["テーマ","成果イメージ","成否のポイント"].concat(years));
+  state.longterm.themes.forEach(t=>rows.push([t.name,t.image,t.keys].concat(t.years)));
+  return rows;
+}
+function aoaAnnual(){
+  const yr=Number(state.annual.year)||thisYear;
+  const months=Array.from({length:12},(_,i)=>(i+1)+"月");
+  let rows=[["年間行動計画表("+yr+"年)"],[]];
+  rows.push(["1年間の目標"]);
+  state.annual.goals.forEach((g,i)=>rows.push([(i+1),g]));
+  rows.push(["最重点目標",state.annual.top],["プロフィール・できごと",state.annual.events],[]);
+  rows.push(["テーマ","成果イメージ","成否のポイント"].concat(months));
+  state.annual.themes.forEach(t=>rows.push([t.name,t.image,t.keys].concat(t.months)));
+  return rows;
+}
+function aoaMonthly(){
+  let rows=[["月間行動計画表"]];
+  Object.keys(state.monthly).sort().forEach(k=>{
+    const m=state.monthly[k], nd=daysInMonth(k);
+    rows.push([],["【"+k+"】"],["今月の目標",m.goal],["最重点目標",m.top],["成果イメージ",m.image],
+      ["成否のポイント",m.keys],["重要な予定",m.notes]);
+    rows.push(["行動テーマ"].concat(Array.from({length:nd},(_,i)=>i+1)).concat(["実績"]));
+    m.habits.forEach(h=>{
+      const marks=Array.from({length:nd},(_,d)=>h.days&&h.days[d+1]?"✓":"");
+      rows.push([h.name].concat(marks).concat([marks.filter(x=>x).length+"回"]));
+    });
+  });
+  return rows;
+}
+function aoaWeekly(){
+  let rows=[["ウィークリープランナー"]];
+  Object.keys(state.weekly).sort().forEach(k=>{
+    const w=state.weekly[k];
+    rows.push([],["【"+k+" 週】"],["今週の目標",w.goal],["最重点目標",w.top],
+      ["決まっている予定",w.fixed],["確保する時間",w.reserve]);
+    rows.push(["日付","曜日","午前","午後","夜","メモ/TODO"]);
+    w.days.forEach((d,i)=>{ const dt=addDays(k,i); rows.push([ymd(dt),DOW[dt.getDay()],d.am,d.pm,d.eve,d.memo]); });
+  });
+  return rows;
+}
+function aoaDaily(){
+  let rows=[["デイリープランナー"]];
+  Object.keys(state.daily).sort().forEach(k=>{
+    const d=state.daily[k];
+    rows.push([],["【"+k+"】"],["最重点目標",d.top]);
+    rows.push(["TO DO","優先","順","見積(分)","済"]);
+    d.todos.forEach(t=>rows.push([t.text,t.pri,t.order,t.est,t.done?"✓":""]));
+    rows.push(["タイムライン"]);
+    Object.keys(d.timeline||{}).sort().forEach(h=>{ if(d.timeline[h]) rows.push([h,d.timeline[h]]); });
+    rows.push(["結果・振り返り",d.result]);
+  });
+  return rows;
+}
+function aoaAffirmation(){
+  const a=state.affirmation;
+  return [["自己宣言文(アファメーション)"],
+    ["Q1 実現したい具体的な内容",a.q1],["Q2 トップ20%の優先事項",a.q2],["Q3 誰のため・何のため",a.q3],
+    [],["自己宣言文",a.text]];
+}
+function allSheets(){
+  return [
+    {name:"自分100年史",rows:aoaHistory()},
+    {name:"やりたいこと100",rows:aoaWish()},
+    {name:"目標の構造化",rows:aoaGoals()},
+    {name:"プライムタイム",rows:aoaPrime()},
+    {name:"中長期10年",rows:aoaLongterm()},
+    {name:"年間",rows:aoaAnnual()},
+    {name:"月間",rows:aoaMonthly()},
+    {name:"週間",rows:aoaWeekly()},
+    {name:"日間",rows:aoaDaily()},
+    {name:"自己宣言文",rows:aoaAffirmation()},
+  ];
+}
+const TAB_TO_SHEET = {history:"自分100年史",wish100:"やりたいこと100",goals:"目標の構造化",primetime:"プライムタイム",
+  longterm:"中長期10年",annual:"年間",monthly:"月間",weekly:"週間",daily:"日間",affirmation:"自己宣言文"};
+
+/* ====================== エクスポート ====================== */
+function exportXLSX(){
+  if(typeof XLSX==="undefined"){ alert("Excel出力ライブラリを読み込めませんでした。インターネット接続を確認して再読み込みするか、「このシートをコピー」でスプレッドシートに貼り付けてください。"); return; }
+  const wb = XLSX.utils.book_new();
+  allSheets().forEach(s=>XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.rows), s.name));
+  XLSX.writeFile(wb, "思考を現実化する手帳_"+ymd(new Date())+".xlsx");
+}
+function copyCurrentTSV(btn){
+  const name = TAB_TO_SHEET[state.ui.tab];
+  if(!name){ alert("このタブにはコピー対象のデータがありません。"); return; }
+  const sheet = allSheets().find(s=>s.name===name);
+  const tsv = sheet.rows.map(r=>r.map(c=>String(c==null?"":c).replace(/\t/g," ").replace(/\n/g," / ")).join("\t")).join("\n");
+  copyText(tsv, btn);
+}
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "思考を現実化する手帳_バックアップ_"+ymd(new Date())+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function sendToCloud(btn){
+  const base = apiBase();
+  if(base===null){ alert("先に「⚙ 設定・保存」タブでAPIのURLを設定してください。"); state.ui.tab="settings"; render(); return; }
+  const o = btn.textContent; btn.textContent = "送信中…"; btn.disabled = true;
+  if(!state.meta) state.meta = {};
+  state.meta.updatedAt = new Date().toISOString();
+  fetch(base+"/api/save",{method:"POST",headers:apiHeaders(true),body:JSON.stringify({sheets:allSheets(),state:state})})
+    .then(res=>{
+      if(!res.ok) throw new Error(apiErrorMsg(res));
+      btn.textContent="✓ 送信しました"; setTimeout(()=>{btn.textContent=o;btn.disabled=false;},2000);
+    })
+    .catch(err=>{ alert("送信に失敗しました: "+err.message); btn.textContent=o; btn.disabled=false; });
+}
+
+function fmtTime(s){ return s ? new Date(s).toLocaleString("ja-JP") : "(日時不明)"; }
+
+function loadFromCloud(interactive, btn){
+  const base = apiBase();
+  if(base===null){
+    if(interactive){ alert("先に「⚙ 設定・保存」タブでAPIのURLを設定してください。"); state.ui.tab="settings"; render(); }
+    return;
+  }
+  let o; if(btn){ o = btn.textContent; btn.textContent = "読込中…"; btn.disabled = true; }
+  const restore = ()=>{ if(btn){ btn.textContent = o; btn.disabled = false; } };
+  fetch(base+"/api/load",{headers:apiHeaders(false)}).then(r=>{
+    if(!r.ok) throw new Error(apiErrorMsg(r));
+    return r.json();
+  }).then(cloud=>{
+    restore();
+    if(!cloud || !cloud.goals){
+      if(interactive) alert("スプレッドシートに保存データがまだありません。\n先に「スプレッドシートへ送信」を実行してください。");
+      return;
+    }
+    const cloudT = cloud.meta && cloud.meta.updatedAt;
+    const localT = state.meta && state.meta.updatedAt;
+    if(!interactive && (!cloudT || (localT && cloudT <= localT))) return; // 起動時: クラウドが新しい場合のみ提案
+    const msg = "スプレッドシートの保存データを読み込みますか?\n\n"+
+      "スプレッドシート側: "+fmtTime(cloudT)+"\nこの端末側: "+fmtTime(localT)+"\n\n"+
+      "※この端末の現在の内容は上書きされます。";
+    if(!confirm(msg)) return;
+    const keepUrl = state.settings.apiUrl, keepToken = state.settings.apiToken;
+    state = Object.assign(defaults(), cloud);
+    if(!state.settings) state.settings = {};
+    if(!state.settings.apiUrl) state.settings.apiUrl = keepUrl;
+    if(!state.settings.apiToken) state.settings.apiToken = keepToken;
+    scheduleSave(); render();
+    setStatus("✓ スプレッドシートから読み込みました");
+  }).catch(err=>{
+    restore();
+    if(interactive) alert("読み込みに失敗しました: "+err.message);
+  });
+}
+
+/* ====================== 起動 ====================== */
+render();
+loadFromCloud(false); // スプレッドシート側が新しいときに読み込みを提案
+</script>
+</body>
+</html>
