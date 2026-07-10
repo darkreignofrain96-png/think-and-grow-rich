@@ -1,0 +1,6 @@
+0000000000000000000000000000000000000000 acefb7277d007e01fa3c970a92f65857757b0243 Nakamura <darkreign.of.rain96@gmail.com> 1783513809 +0900	commit (initial): アチーブメントプランナー Webツール初版
+acefb7277d007e01fa3c970a92f65857757b0243 e2c30e407ccdb20eaa33d0420aa784e38e6f0420 Nakamura <darkreign.of.rain96@gmail.com> 1783514035 +0900	commit: タイトルを「思考を現実化する手帳」に変更
+e2c30e407ccdb20eaa33d0420aa784e38e6f0420 831ef1f8064c7b6283047cdd95b4b56edf32dccd Nakamura <darkreign.of.rain96@gmail.com> 1783594031 +0900	commit: スプレッドシート連携をGASからVercelサーバーレスAPIに移行
+831ef1f8064c7b6283047cdd95b4b56edf32dccd 2a75068ad6d81c817ea01d56b847a4802c31655b Nakamura <darkreign.of.rain96@gmail.com> 1783695523 +0900	revert: Revert "スプレッドシート連携をGASからVercelサーバーレスAPIに移行"
+2a75068ad6d81c817ea01d56b847a4802c31655b 20b429d34e2ee282caf628a84a4509c682576557 Nakamura <darkreign.of.rain96@gmail.com> 1783695536 +0900	commit: READMEにVercel静的ホスティング手順を追記(連携はGASのみ)
+20b429d34e2ee282caf628a84a4509c682576557 42aa80bfafd0270f5a39cb651b0d0ff3644e8cf4 Nakamura <darkreign.of.rain96@gmail.com> 1783698375 +0900	commit: GAS URLをVercel環境変数(GAS_URL)に一元化

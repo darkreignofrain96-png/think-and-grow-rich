@@ -1,0 +1,5 @@
+GAS URLをVercel環境変数(GAS_URL)に一元化
+
+- api/save.js, api/load.js: GASウェブアプリへの中継API(依存ライブラリなし)
+- サービスアカウント不要。ブラウザ側でのURL設定も不要に
+- ACCESS_TOKENによる保護、CORS対応(ローカルHTMLからも利用可)
